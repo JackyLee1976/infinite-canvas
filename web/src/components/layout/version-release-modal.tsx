@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
-import { Modal, Tag, Timeline } from "antd";
+import { useState, type CSSProperties } from "react";
+import { Alert, Button, Modal, Tag, Timeline } from "antd";
 import { useVersionCheck } from "@/hooks/use-version-check";
 import { APP_VERSION } from "@/constant/env";
 
@@ -20,8 +20,13 @@ type VersionReleaseModalProps = {
     style?: CSSProperties;
 };
 
+const CANVAS_UPDATE_COMMAND =
+    "cd /d L:/00-projects/infinite-canvas && git pull origin main && cd web && npm install";
+
 export function VersionReleaseModal({ className, style }: VersionReleaseModalProps) {
     const { open, setOpen, openReleaseModal, latestVersion, releases, checking, hasNewVersion, checkLatestRelease } = useVersionCheck();
+    const [showUpdateGuide, setShowUpdateGuide] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     return (
         <>
@@ -57,6 +62,44 @@ export function VersionReleaseModal({ className, style }: VersionReleaseModalPro
                         <div className="mt-1 text-base font-semibold text-stone-950 dark:text-stone-100">{latestVersion}</div>
                     </div>
                 </div>
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3 dark:border-stone-800 dark:bg-stone-900/50">
+                    <div>
+                        <div className="text-sm font-semibold text-stone-900 dark:text-stone-100">更新到最新版</div>
+                        <div className="mt-0.5 text-xs text-stone-500 dark:text-stone-400">当前 {APP_VERSION} → 最新 {latestVersion}</div>
+                    </div>
+                    <Button type="primary" size="small" onClick={() => setShowUpdateGuide((v) => !v)}>
+                        {showUpdateGuide ? "收起指引" : "更新"}
+                    </Button>
+                </div>
+                {showUpdateGuide ? (
+                    <div className="mb-3">
+                        <Alert
+                            type="info"
+                            showIcon={false}
+                            message={
+                                <div className="text-xs leading-5">
+                                    在终端执行以下命令完成更新，然后刷新/重开创作画布面板：
+                                    <code className="mx-1 rounded bg-stone-200/70 px-1.5 py-0.5 font-mono text-[11px] text-stone-800 dark:bg-stone-800 dark:text-stone-200">
+                                        {CANVAS_UPDATE_COMMAND}
+                                    </code>
+                                </div>
+                            }
+                            action={
+                                <Button
+                                    size="small"
+                                    onClick={() => {
+                                        void navigator.clipboard.writeText(CANVAS_UPDATE_COMMAND).then(() => {
+                                            setCopied(true);
+                                            setTimeout(() => setCopied(false), 2000);
+                                        });
+                                    }}
+                                >
+                                    {copied ? "已复制" : "复制命令"}
+                                </Button>
+                            }
+                        />
+                    </div>
+                ) : null}
                 <div className="max-h-[56vh] overflow-y-auto pr-2">
                     <Timeline
                         items={releases.map((release) => ({

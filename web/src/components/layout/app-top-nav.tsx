@@ -22,6 +22,8 @@ export function AppTopNav() {
     const panelOpen = useAgentStore((state) => state.panelOpen);
     const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
     const slug = pathname.split("/").filter(Boolean)[0];
+    // OneWork 内嵌模式（iframe 带 owTheme 参数）：顶部品牌显示 OneWork 创作画布
+    const isEmbeddedInOneWork = new URLSearchParams(window.location.search).has("owTheme");
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
 
     useEffect(() => {
@@ -44,7 +46,7 @@ export function AppTopNav() {
                                         WebkitMask: "url(/logo.svg) center / contain no-repeat",
                                     }}
                                 />
-                                <span className="text-base font-medium">无限画布</span>
+                                <span className="text-base font-medium">{isEmbeddedInOneWork ? "OneWork 创作画布" : "无限画布"}</span>
                             </Link>
 
                             <button

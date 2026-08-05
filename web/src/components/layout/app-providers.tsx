@@ -28,8 +28,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
         document.documentElement.style.colorScheme = theme;
     }, [dark, theme]);
 
+    // OneWork 内嵌模式：读取 owFontScale 同步 antd 组件字号
+    const owFontScale = new URLSearchParams(window.location.search).get("owFontScale");
+    const owScale = owFontScale ? Number.parseFloat(owFontScale) : Number.NaN;
+    const fontScale = Number.isFinite(owScale) && owScale > 0 ? owScale : 1;
+
     return (
-        <ConfigProvider locale={zhCN} theme={getAntThemeConfig(dark)}>
+        <ConfigProvider locale={zhCN} theme={getAntThemeConfig(dark, fontScale)}>
             <ProConfigProvider dark={dark}>
                 <App>
                     <QueryClientProvider client={queryClient}>

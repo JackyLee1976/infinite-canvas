@@ -28,13 +28,15 @@ const neutral = {
     },
 };
 
-export function getAntThemeConfig(dark: boolean): ThemeConfig {
+export function getAntThemeConfig(dark: boolean, fontScale = 1): ThemeConfig {
     const color = dark ? neutral.dark : neutral.light;
 
     return {
         algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         cssVar: { key: dark ? "infinite-canvas-dark" : "infinite-canvas-light" },
         token: {
+            // OneWork 内嵌模式：按 owFontScale 缩放 antd 组件字号（默认 14px），与主应用 UI 对齐
+            fontSize: Math.round(14 * fontScale),
             colorPrimary: color.primary,
             colorInfo: color.primary,
             colorLink: color.primary,

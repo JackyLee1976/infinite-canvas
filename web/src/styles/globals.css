@@ -84,24 +84,26 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --border: oklch(1 0 0 / 10%);
-    --ring: oklch(0.556 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    /* 深色变量对齐 OneWork 暗色板（--ow-*）：editor-bg #181818 / text #d1d5db /
+       text-muted #9ca3af / text-strong #e5e7eb / pane-muted #1f1f21 / shell-bg #0e0e10 */
+    --background: #181818;
+    --foreground: #d1d5db;
+    --border: rgb(255 255 255 / 8%);
+    --ring: #3a3a3e;
+    --card: #1c1c1f;
+    --card-foreground: #e5e7eb;
+    --popover: #1c1c1f;
+    --popover-foreground: #e5e7eb;
+    --primary: #e5e7eb;
+    --primary-foreground: #181818;
+    --secondary: #2f2f33;
+    --secondary-foreground: #d1d5db;
+    --muted: #2f2f33;
+    --muted-foreground: #9ca3af;
+    --accent: #2f2f33;
+    --accent-foreground: #e5e7eb;
     --destructive: oklch(0.704 0.191 22.216);
-    --input: oklch(1 0 0 / 15%);
+    --input: rgb(255 255 255 / 15%);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
