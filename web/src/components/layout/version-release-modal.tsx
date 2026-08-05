@@ -20,8 +20,10 @@ type VersionReleaseModalProps = {
     style?: CSSProperties;
 };
 
+// OneWork 定制分支更新流程：拉上游到 onework-custom 分支并合并（fork 模型），
+// 不要直接 git pull（会把上游覆盖到定制分支上）。
 const CANVAS_UPDATE_COMMAND =
-    "cd /d L:/00-projects/infinite-canvas && git pull origin main && cd web && npm install";
+    "cd /d L:/00-projects/infinite-canvas && git checkout onework-custom && git fetch origin main && git merge origin/main && cd web && npm install && git push myfork onework-custom";
 
 export function VersionReleaseModal({ className, style }: VersionReleaseModalProps) {
     const { open, setOpen, openReleaseModal, latestVersion, releases, checking, hasNewVersion, checkLatestRelease } = useVersionCheck();
@@ -78,10 +80,18 @@ export function VersionReleaseModal({ className, style }: VersionReleaseModalPro
                             showIcon={false}
                             message={
                                 <div className="text-xs leading-5">
-                                    在终端执行以下命令完成更新，然后刷新/重开创作画布面板：
-                                    <code className="mx-1 rounded bg-stone-200/70 px-1.5 py-0.5 font-mono text-[11px] text-stone-800 dark:bg-stone-800 dark:text-stone-200">
-                                        {CANVAS_UPDATE_COMMAND}
+                                    <p className="mb-1.5 font-medium text-stone-700 dark:text-stone-300">安全更新流程（自动备份定制，冲突时可回退）：</p>
+                                    <code className="block overflow-x-auto whitespace-pre rounded bg-stone-200/70 px-2 py-1.5 font-mono text-[11px] leading-5 text-stone-800 dark:bg-stone-800 dark:text-stone-200">
+{`cd /d L:/00-projects/infinite-canvas
+git checkout onework-custom
+git fetch origin main
+git merge origin/main
+cd web && npm install
+git push myfork onework-custom`}
                                     </code>
+                                    <p className="mt-1.5 text-stone-500 dark:text-stone-400">
+                                        merge 冲突时不要强推，联系 OneWork 开发（AI）处理；定制分支可从 git 回退。
+                                    </p>
                                 </div>
                             }
                             action={
