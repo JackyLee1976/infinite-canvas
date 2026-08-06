@@ -4,6 +4,7 @@ import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 
 import { runClaudeTurn } from "../agent/claude.js";
+import { runOneWorkTurn } from "../agent/onework.js";
 import { archiveCodexThread, CodexSkillLookupError, configureCodexSkill, generateCodexSkillDraft, interruptCodexTurn, isRecoverableThreadError, listCodexModels, listCodexSkills, listCodexThreads, readCodexThread, resolveCodexApproval, resolveCodexSkill, resumeCodexThread, runCodexTurn, startCodexThread, summarizeCodexThread } from "../agent/codex.js";
 import type { CodexReasoningEffort, CodexSkillSelector } from "../agent/codex-protocol.js";
 import type { AgentAttachment, AgentPermissionMode } from "../agent/types.js";
@@ -410,6 +411,38 @@ export function startHttpServer() {
     }));
     app.post("/agent/claude/turn", (req, res) => {
         runClaudeTurn(String(req.body?.prompt || ""), emit);
+        res.json({ ok: true });
+    });
+
+    // OneWork AI 对话（Phase 2）：画布 Agent 对话走 OneWork 本地桥，工具经 session.callTool 执行
+    app.post("/agent/onework/turn", (req, res) => {
+        const prompt = String(req.body?.prompt || "");
+        if (!prompt.trim()) return res.status(400).json({ ok: false, error: "请输入任务内容" });
+        const clientId = String(req.body?.clientId || "");
+        if (!clientId || !session.hasClient(clientId)) return res.status(409).json({ ok: false, error: "发起任务的网页已断开，请重新连接后再试" });
+        const threadId = session.conversationStateSnapshot.threadId || `onework-${Date.now()}`;
+        const messageId = String(req.body?.messageId || Date.now());
+        const messageText = String(req.body?.messageText || prompt);
+        session.bindClient(clientId);
+        session.markConversationRunning(threadId);
+        session.setCodexState({ busy: true, threadId, turnId: "" });
+        const lifecycleEmit = (type: string, payload: unknown) => {
+            const value = payload && typeof payload === "object" && !Array.isArray(payload) ? payload as Record<string, unknown> : { value: payload };
+            const eventThreadId = String(value.threadId || value.thread_id || threadId);
+            const sourceClientId = String(value.sourceClientId || clientId);
+            session.emitThread(type, eventThreadId, { ...value, threadId: eventThreadId, thread_id: eventThreadId, ...(sourceClientId ? { sourceClientId } : {}) });
+        };
+        session.emitThread("chat_message", threadId, {
+            sourceClientId: clientId,
+            message: { id: `${threadId}:pending:synthetic:user`, itemId: "synthetic:user", clientMessageId: messageId, threadId, turnId: "", role: "user", text: messageText },
+        });
+        void runOneWorkTurn(prompt, lifecycleEmit, {
+            model: String(req.body?.model || "") || undefined,
+            provider: String(req.body?.provider || "") || undefined,
+            callTool: (name, input) => session.callTool(name, input),
+            onStart: () => session.bindClient(clientId),
+            onFinish: () => session.setCodexState({ busy: false, threadId, turnId: "" }),
+        });
         res.json({ ok: true });
     });
     app.use((_req, res) => res.status(404).json({ ok: false, error: "not found" }));

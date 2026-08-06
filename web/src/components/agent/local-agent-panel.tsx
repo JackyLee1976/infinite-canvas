@@ -669,23 +669,36 @@ export function LocalAgentPanel({ embedded, headless, autoConnect }: { embedded?
             const modelName = models.find((item) => item.model === model)?.displayName || model || rt("defaultModel");
             const effortName = reasoningEffort ? i18n.t(`agent.composer.effort.${reasoningEffort}`) : rt("defaultEffort");
             addEventLog(rt("sendTask"), `${modelName} · ${effortName}${selectedSkill ? ` · Skill ${selectedSkill.name}` : ""}${files.length ? ` · ${rt("attachmentCount", { count: files.length })}` : ""} · ${compactText(text) || rt("attachmentsOnly")}`);
-            const accepted = await fetchAgentJson<AgentTurnResponse>(endpoint, token, "/agent/codex/turn", {
+            const backend = useAgentStore.getState().agentBackend;
+            const accepted = await fetchAgentJson<AgentTurnResponse>(endpoint, token, backend === "onework" ? "/agent/onework/turn" : "/agent/codex/turn", {
                 method: "POST",
                 headers: { "content-type": "application/json" },
-                body: JSON.stringify({
-                    prompt: requestPrompt,
-                    messageText: userText,
-                    messageId,
-                    clientId: clientIdRef.current,
-                    threadId,
-                    conversationId: currentBeforeSend.conversation.conversationId,
-                    expectedRevision: currentBeforeSend.conversation.revision,
-                    permissionMode,
-                    model,
-                    effort: reasoningEffort,
-                    skill: selectedSkill ? { name: selectedSkill.name, path: selectedSkill.path } : undefined,
-                    attachments: files.map(({ id, name, type, size, width, height, dataUrl }) => ({ id, name, type, size, width, height, dataUrl })),
-                }),
+                body: JSON.stringify(
+                    backend === "onework"
+                        ? {
+                              prompt: requestPrompt,
+                              messageText: userText,
+                              messageId,
+                              clientId: clientIdRef.current,
+                              threadId,
+                              model,
+                              attachments: files.map(({ id, name, type, size, width, height, dataUrl }) => ({ id, name, type, size, width, height, dataUrl })),
+                          }
+                        : {
+                              prompt: requestPrompt,
+                              messageText: userText,
+                              messageId,
+                              clientId: clientIdRef.current,
+                              threadId,
+                              conversationId: currentBeforeSend.conversation.conversationId,
+                              expectedRevision: currentBeforeSend.conversation.revision,
+                              permissionMode,
+                              model,
+                              effort: reasoningEffort,
+                              skill: selectedSkill ? { name: selectedSkill.name, path: selectedSkill.path } : undefined,
+                              attachments: files.map(({ id, name, type, size, width, height, dataUrl }) => ({ id, name, type, size, width, height, dataUrl })),
+                          },
+                ),
             });
             threadId = accepted.threadId || threadId;
             if (!threadId) throw new Error(rt("startConversationFailed"));

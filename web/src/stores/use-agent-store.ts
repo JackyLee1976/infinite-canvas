@@ -50,6 +50,8 @@ type AgentStore = {
     connected: boolean;
     enabled: boolean;
     silentConnect: boolean;
+    /** Agent 后端：codex（upstream CLI）/ onework（OneWork 本地桥，Phase 2） */
+    agentBackend: "codex" | "onework";
     prompt: string;
     attachments: AgentAttachment[];
     sending: boolean;
@@ -100,6 +102,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     connected: false,
     enabled: false,
     silentConnect: false,
+    agentBackend: "onework",
     prompt: "",
     attachments: [],
     sending: false,
