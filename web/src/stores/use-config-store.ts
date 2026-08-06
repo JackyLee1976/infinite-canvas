@@ -24,6 +24,8 @@ export type ModelChannel = {
 
 export type AiConfig = {
     channelMode: "remote" | "local";
+    /** OneWork AI 桥模式：画布生图（image 能力）请求经 OneWork 转发（baseUrl 指向本地桥） */
+    useOneWorkBridge?: boolean;
     baseUrl: string;
     apiKey: string;
     apiFormat: ApiCallFormat;
@@ -63,11 +65,14 @@ export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webd
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
+/** OneWork AI 生图桥（canvas_host.rs）：POST /api/ai/images/generations，密钥由 OneWork 侧持有 */
+const ONE_WORK_BRIDGE_BASE_URL = "http://127.0.0.1:3000/api/ai";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
+    useOneWorkBridge: false,
     baseUrl: OPENAI_BASE_URL,
     apiKey: "",
     apiFormat: "openai",
@@ -217,8 +222,14 @@ export const useConfigStore = create<ConfigStore>()(
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
                 const persistedConfig = (persistedState.config || {}) as Partial<AiConfig>;
+                const isEmbeddedInOneWork = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("owTheme");
                 const persistedWebdav = (persistedState.webdav || {}) as Partial<WebdavSyncConfig>;
-                const config = { ...defaultConfig, ...persistedConfig };
+                const config = {
+                    ...defaultConfig,
+                    ...persistedConfig,
+                    // OneWork 内嵌默认开启桥模式；独立浏览器默认关闭（可手动开）
+                    useOneWorkBridge: persistedConfig.useOneWorkBridge ?? isEmbeddedInOneWork,
+                };
                 if (!Array.isArray(persistedConfig.channels)) config.channels = [];
                 const channels = normalizeChannels(config);
                 const models = modelOptionsFromChannels(channels);
@@ -334,13 +345,22 @@ export function resolveModelChannel(config: AiConfig, value: string) {
 
 export function resolveModelRequestConfig(config: AiConfig, value: string) {
     const channel = resolveModelChannel(config, value);
-    return {
+    const base = {
         ...config,
         model: modelOptionName(value || config.model),
         baseUrl: channel.baseUrl,
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
     };
+    // OneWork AI 桥模式：image 能力请求经 OneWork 转发（密钥在 OneWork 侧，画布侧只传占位）
+    if (config.useOneWorkBridge && guessCapability(base.model) === "image") {
+        return {
+            ...base,
+            baseUrl: ONE_WORK_BRIDGE_BASE_URL,
+            apiKey: "onework-bridge",
+        };
+    }
+    return base;
 }
 
 function normalizeChannels(config: AiConfig) {

@@ -1,4 +1,4 @@
-import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
+import { App, Button, Form, Input, Modal, Progress, Select, Switch, Tabs } from "antd";
 import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -192,6 +192,18 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                     <Button type="primary" icon={<Plus className="size-4" />} onClick={addChannel}>
                                         新增渠道
                                     </Button>
+                                </div>
+                                <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-4 py-3 dark:border-stone-800">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-semibold">使用 OneWork AI 生图</div>
+                                        <div className="mt-0.5 text-xs text-stone-500">
+                                            画布生图（image 模型）请求经 OneWork 本地桥转发，密钥由 OneWork 侧管理；需 OneWork 正在运行。内嵌模式默认开启，独立浏览器可手动开启。
+                                        </div>
+                                    </div>
+                                    <Switch
+                                        checked={Boolean(config.useOneWorkBridge)}
+                                        onChange={(checked) => updateConfig("useOneWorkBridge", checked)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     {config.channels.map((channel) => (
