@@ -187,6 +187,8 @@ export function resolveModelScript(config: AiConfig, value: string) {
 }
 
 function isAiConfigReady(config: AiConfig, model: string) {
+    // OneWork AI 桥模式：image 能力模型无需画布渠道 key（密钥由 OneWork 侧持有），视为已就绪
+    if (config.useOneWorkBridge && guessCapability(modelOptionName(model)) === "image") return true;
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
 }
