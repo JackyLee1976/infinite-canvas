@@ -85,17 +85,22 @@ async function chatOnce(messages: Array<Record<string, unknown>>, model: string,
             function: {
                 name,
                 description: toolDescriptions[name] || "",
-                // 宽松参数约束（Phase 2 基础版）；参数由 session.callTool 的 zod schema 严格校验
+                // 宽松参数约束（zod v3.25 无 toJSONSchema；参数由 session.callTool 的 zod schema 严格校验兜底）
                 parameters: { type: "object", properties: {}, additionalProperties: true },
             },
         })),
     };
     if (provider) body.provider = provider;
-    const resp = await fetch(ONE_WORK_BRIDGE_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-    });
+    let resp: Response;
+    try {
+        resp = await fetch(ONE_WORK_BRIDGE_URL, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+        });
+    } catch {
+        throw new Error("OneWork 桥不可用：请确认 OneWork 应用正在运行（画布对话经 OneWork 本地桥转发）");
+    }
     if (!resp.ok) {
         const text = await resp.text().catch(() => "");
         throw new Error(`OneWork 桥请求失败 (${resp.status})：${text.slice(0, 300)}`);
