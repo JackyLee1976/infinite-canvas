@@ -67,8 +67,8 @@ export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webd
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
-/** OneWork AI 生图桥（canvas_host.rs）：POST /api/ai/images/generations，密钥由 OneWork 侧持有 */
-const ONE_WORK_BRIDGE_BASE_URL = "http://127.0.0.1:3000/api/ai";
+/** OneWork AI 桥（canvas_host.rs）：POST /api/ai/v1/...（带 v1 供 buildApiUrl 不再补路径），密钥由 OneWork 侧持有 */
+const ONE_WORK_BRIDGE_BASE_URL = "http://127.0.0.1:3000/api/ai/v1";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 const ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
 
