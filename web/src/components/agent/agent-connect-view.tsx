@@ -4,6 +4,8 @@ import copyToClipboard from "copy-to-clipboard";
 import { Copy, KeyRound, Link2, PlugZap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useAgentStore } from "@/stores/use-agent-store";
+
 import { canvasThemes } from "@/lib/canvas-theme";
 
 const AGENT_PLUGIN_REMOVE_COMMAND = "codex plugin remove infinite-canvas";
@@ -34,7 +36,10 @@ export function AgentConnectView({
 }) {
     const { t } = useTranslation();
     const { message } = App.useApp();
-    const steps = [{ title: t("agent.connect.pluginTitle"), text: t("agent.connect.pluginText") }, { title: t("agent.connect.directTitle"), text: t("agent.connect.directText"), command: "npx -y @basketikun/canvas-agent" }];
+    const isOneWorkBackend = useAgentStore((state) => state.agentBackend) === "onework";
+    const steps = isOneWorkBackend
+        ? [{ title: t("agent.connect.oneworkTitle"), text: t("agent.connect.oneworkText") }]
+        : [{ title: t("agent.connect.pluginTitle"), text: t("agent.connect.pluginText") }, { title: t("agent.connect.directTitle"), text: t("agent.connect.directText"), command: "npx -y @basketikun/canvas-agent" }];
     const statusText = connectError ? t("agent.status.failed") : connected ? activity : enabled ? t("agent.status.connecting") : t("agent.status.disconnected");
     const statusColor = connectError ? "#dc2626" : connected ? "#16a34a" : enabled ? "#d97706" : theme.node.muted;
     const copyCommand = (command: string) => {
@@ -44,9 +49,9 @@ export function AgentConnectView({
     const codexPluginReminder = (
         <div className="rounded-lg border px-3 py-2.5 text-xs leading-5" style={{ borderColor: theme.node.stroke, color: theme.node.muted }}>
             <div className="font-medium" style={{ color: theme.node.text }}>
-                {t("agent.connect.pluginReminder")}
+                {isOneWorkBackend ? t("agent.connect.oneworkReminder") : t("agent.connect.pluginReminder")}
             </div>
-            <div className="mt-1">{t("agent.connect.pluginReminderText")}</div>
+            <div className="mt-1">{isOneWorkBackend ? t("agent.connect.oneworkReminderText") : t("agent.connect.pluginReminderText")}</div>
             <div className="mt-2 grid gap-1.5">
                 {[
                     [t("agent.connect.removePlugin"), AGENT_PLUGIN_REMOVE_COMMAND],
