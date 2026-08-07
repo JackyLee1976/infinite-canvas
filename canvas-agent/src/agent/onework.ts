@@ -44,19 +44,14 @@ export async function runOneWorkTurn(prompt: string, emit: AgentEmit, options: O
         ];
         const turnId = `onework-${Date.now()}`;
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-            const resp = await chatOnce(messages, options.model || DEFAULT_MODEL, options.provider);
+            // 流式：chatOnce 解析 SSE，content 增量经 emit 实时上屏（前端按 id upsert 打字机）
+            const resp = await chatOnce(messages, options.model || DEFAULT_MODEL, options.provider, emit, turnId, round);
             if (resp.error?.message) throw new Error(resp.error.message);
             const choice = resp.choices?.[0];
             const msg = choice?.message || {};
-            const content = typeof msg.content === "string" && msg.content.trim() ? msg.content : "";
             const toolCalls = (msg.tool_calls || []).filter(Boolean);
-            if (content) {
-                emit("chat_message", {
-                    message: { id: `${turnId}:${round}`, itemId: "assistant", role: "assistant", text: content },
-                });
-            }
             if (!toolCalls.length) break;
-            messages.push({ role: "assistant", content: content || null, tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: "function", function: tc.function })) });
+            messages.push({ role: "assistant", content: (typeof msg.content === "string" && msg.content.trim() ? msg.content : null), tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: "function", function: tc.function })) });
             for (const tc of toolCalls) {
                 let result: unknown;
                 try {
@@ -76,10 +71,18 @@ export async function runOneWorkTurn(prompt: string, emit: AgentEmit, options: O
     }
 }
 
-async function chatOnce(messages: Array<Record<string, unknown>>, model: string, provider?: string): Promise<OpenAiChatResponse> {
+async function chatOnce(
+    messages: Array<Record<string, unknown>>,
+    model: string,
+    provider: string | undefined,
+    emit: AgentEmit,
+    turnId: string,
+    round: number,
+): Promise<OpenAiChatResponse> {
     const body: Record<string, unknown> = {
         model,
         messages,
+        stream: true,
         tools: toolNames.map((name) => ({
             type: "function",
             function: {
@@ -107,5 +110,78 @@ async function chatOnce(messages: Array<Record<string, unknown>>, model: string,
         const text = await resp.text().catch(() => "");
         throw new Error(`OneWork 桥请求失败 (${resp.status})：${text.slice(0, 300)}`);
     }
-    return (await resp.json()) as OpenAiChatResponse;
+    if (!resp.body) throw new Error("OneWork 桥响应缺少 body");
+    // 解析 SSE（data: 行）：content 增量实时 emit（前端按同 id upsert → 打字机），
+    // tool_calls 按 index 合并分片（OpenAI 流式函数参数分片累积）。
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let content = "";
+    let lastEmitted = "";
+    const toolCalls: Array<{ index: number; id?: string; name?: string; arguments: string }> = [];
+    const emitIncrement = () => {
+        if (content && content !== lastEmitted) {
+            lastEmitted = content;
+            emit("chat_message", {
+                message: { id: `${turnId}:${round}`, itemId: "assistant", role: "assistant", text: content },
+            });
+        }
+    };
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+            const data = trimmed.slice(5).trim();
+            if (!data || data === "[DONE]") continue;
+            let chunk: unknown;
+            try {
+                chunk = JSON.parse(data);
+            } catch {
+                continue;
+            }
+            const parsed = chunk as {
+                choices?: Array<{ delta?: { content?: string; tool_calls?: Array<{ index?: number; id?: string; function?: { name?: string; arguments?: string } }> }; finish_reason?: string }>;
+                error?: { message?: string };
+            };
+            if (parsed.error?.message) throw new Error(parsed.error.message);
+            const delta = parsed.choices?.[0]?.delta;
+            if (delta?.content) {
+                content += delta.content;
+                emitIncrement();
+            }
+            if (Array.isArray(delta?.tool_calls)) {
+                for (const tc of delta.tool_calls) {
+                    const index = tc.index ?? 0;
+                    const entry = toolCalls[index] ?? { index, arguments: "" };
+                    if (tc.id) entry.id = tc.id;
+                    if (tc.function?.name) entry.name = tc.function.name;
+                    if (tc.function?.arguments) entry.arguments += tc.function.arguments;
+                    toolCalls[index] = entry;
+                }
+            }
+        }
+    }
+    // 确保最后一段增量上屏（含 tool_calls 轮的无文本场景由 runOneWorkTurn 处理）
+    emitIncrement();
+    const mergedToolCalls = toolCalls
+        .filter((call) => Boolean(call.name || call.id))
+        .map((call) => ({
+            id: call.id ?? `call_${call.index}`,
+            function: { name: call.name ?? "", arguments: call.arguments || "{}" },
+        }));
+    return {
+        choices: [
+            {
+                message: {
+                    content: content || null,
+                    tool_calls: mergedToolCalls.length ? mergedToolCalls : null,
+                },
+            },
+        ],
+    };
 }
