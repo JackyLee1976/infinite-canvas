@@ -1,4 +1,4 @@
-import { AGENT_PROMPT } from "../config.js";
+import { AGENT_PROMPT, loadConfig } from "../config.js";
 import { errorMessage } from "../utils/value.js";
 import type { AgentEmit } from "./types.js";
 import { toolDescriptions, toolNames } from "../canvas/schemas.js";
@@ -93,9 +93,11 @@ async function chatOnce(messages: Array<Record<string, unknown>>, model: string,
     if (provider) body.provider = provider;
     let resp: Response;
     try {
+        // 桥鉴权：携带与 canvas-agent 同一的 token（OneWork canvas_host 按该 token 校验）
+        const config = loadConfig();
         resp = await fetch(ONE_WORK_BRIDGE_URL, {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: { "content-type": "application/json", authorization: `Bearer ${config.token}` },
             body: JSON.stringify(body),
         });
     } catch {

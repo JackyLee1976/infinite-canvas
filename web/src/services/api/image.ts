@@ -336,9 +336,21 @@ function aiApiUrl(config: AiConfig, path: string) {
     return buildApiUrl(config.baseUrl, path);
 }
 
+function resolveAuthKey(apiKey: string): string {
+    // OneWork 桥模式：密钥在 OneWork 侧，画布侧把与 canvas-agent 同一的 token
+    // 作为 Bearer 凭据（桥按该 token 校验）。token 由 OneWork iframe URL agentToken
+    // 注入并持久化在 localStorage("canvas-agent-token")；缺失时退回原 apiKey，
+    // 桥会以 401 拒绝（与画布侧未连接 agent 的状态一致）。
+    if (apiKey === "onework-bridge") {
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("canvas-agent-token") || "" : "";
+        return token || apiKey;
+    }
+    return apiKey;
+}
+
 function aiHeaders(config: AiConfig, contentType?: string) {
     return {
-        Authorization: `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${resolveAuthKey(config.apiKey)}`,
         ...(contentType ? { "Content-Type": contentType } : {}),
     };
 }
@@ -917,7 +929,7 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
         }
         const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
             headers: {
-                Authorization: `Bearer ${config.apiKey}`,
+                Authorization: `Bearer ${resolveAuthKey(config.apiKey)}`,
             },
         });
         return (response.data.data || [])
