@@ -72,8 +72,8 @@ const AGENT_PROTOCOL_VERSION = 5;
 const HISTORY_RETRY_DELAYS_MS = [0, 150, 350, 700, 1200];
 const AGENT_REASONING_EFFORTS = new Set<AgentReasoningEffort>(["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]);
 const rt = (key: string, options?: Record<string, unknown>) => i18n.t(`agent.runtime.${key}`, options);
-// OneWork 模式显示 OneWork，Codex 模式显示 Codex
-const agentDisplayName = () => (useAgentStore.getState().agentBackend === "onework" ? "OneWork" : "Codex");
+// 白标：后端恒为 OneWork，界面不出现 Codex
+const agentDisplayName = () => "OneWork";
 
 type AgentWorkspace = { workspacePath: string; activeThreadId?: string };
 type AgentThreadsResponse = { ok?: boolean; workspace?: AgentWorkspace; conversation?: AgentConversationState; data?: AgentThreadSummary[] };
@@ -720,7 +720,7 @@ export function LocalAgentPanel({ embedded, headless, autoConnect }: { embedded?
             const response = error instanceof AgentApiError ? error.response as { code?: string; state?: AgentConversationState } : undefined;
             if (response?.state) applyConversationState(response.state);
             const stale = response?.code === "CONVERSATION_STALE";
-            const busy = response?.code === "CONVERSATION_BUSY" || text.includes(agentDisplayName() + " 正在运行") || text.includes("Codex 正在运行");
+            const busy = response?.code === "CONVERSATION_BUSY" || text.includes(agentDisplayName() + " 正在运行");
             const state = useAgentStore.getState();
             const removeFailedPending = (messages: AgentChatItem[]) => messages.filter((item) => item.clientMessageId !== messageId || Boolean(item.turnId));
             threadMessagesRef.current.forEach((messages, cachedThreadId) => {
