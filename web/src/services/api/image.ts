@@ -324,7 +324,23 @@ function readStatusError(status: number | undefined, fallback: string) {
     if (status === 404) return apiText("notFound");
     if (status === 502) return apiText("badGateway");
     if (status === 503) return apiText("serviceBusy");
+    if (status === 504) return apiText("gatewayTimeout");
     return status ? apiText("httpFailed", { status }) : fallback;
+}
+
+/**
+ * 生图/对话统一错误解读：OneWork 桥模式（apiKey === "onework-bridge"）下
+ * 401/403 通常是「未在 Agent 面板连接」——给出明确操作提示，而非笼统的鉴权失败。
+ */
+function readGenerationError(error: unknown, config: AiConfig, fallback: string): string {
+    const msg = readAxiosError(error, fallback);
+    if (config.apiKey === "onework-bridge") {
+        const status = (error as { response?: { status?: number } } | null)?.response?.status;
+        if (status === 401 || status === 403 || msg === apiText("authenticationFailed")) {
+            return apiText("oneworkBridgeNotConnected");
+        }
+    }
+    return msg;
 }
 
 function withSystemPrompt(config: AiConfig, prompt: string) {
@@ -745,14 +761,14 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
             });
             return normalizePluginImages(result).map((dataUrl) => ({ id: nanoid(), dataUrl }));
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
     if (requestConfig.apiFormat === "gemini") {
         try {
             return await requestGeminiImages(requestConfig, prompt, [], n, options);
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
     const quality = normalizeQuality(config.quality);
@@ -779,7 +795,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
         const images = parseImagePayload(response.data);
         return images;
     } catch (error) {
-        throw new Error(readAxiosError(error, apiText("requestFailed")));
+        throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
     }
 }
 
@@ -805,7 +821,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
             });
             return normalizePluginImages(result).map((dataUrl) => ({ id: nanoid(), dataUrl }));
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
     if (requestConfig.apiFormat === "gemini") {
@@ -813,7 +829,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
         try {
             return await requestGeminiImages(requestConfig, requestPrompt, references, n, options);
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
 
@@ -844,7 +860,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
             );
             return parseImagePayload(response.data);
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
 
@@ -875,7 +891,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
         const images = parseImagePayload(response.data);
         return images;
     } catch (error) {
-        throw new Error(readAxiosError(error, apiText("requestFailed")));
+        throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
     }
 }
 
@@ -896,7 +912,7 @@ export async function requestImageQuestion(config: AiConfig, messages: AiTextMes
             if (text === apiText("noContent")) onDelta(text);
             return text;
         } catch (error) {
-            throw new Error(readAxiosError(error, apiText("requestFailed")));
+            throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
     }
     try {
@@ -913,7 +929,7 @@ export async function requestImageQuestion(config: AiConfig, messages: AiTextMes
         if (answer === apiText("noContent")) onDelta(answer);
         return answer;
     } catch (error) {
-        throw new Error(readAxiosError(error, apiText("requestFailed")));
+        throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
     }
 }
 
