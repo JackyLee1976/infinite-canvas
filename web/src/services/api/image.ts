@@ -243,6 +243,38 @@ function resolveImageDataUrl(item: Record<string, unknown>) {
     return null;
 }
 
+/**
+ * 生成图片结果统一处理：OneWork 桥模式下，provider 返回的外部图片 URL
+ * （如 Agnes / 旧 rkapi，图片域无 CORS 头）经桥图片代理 /api/ai/image-proxy
+ * 转 dataURL，供画布直接显示/存储。非桥模式或已是 dataURL 则原样返回。
+ */
+async function normalizeToDataUrls(urls: string[], config: Pick<AiConfig, "apiKey">): Promise<Array<{ id: string; dataUrl: string }>> {
+    const dataUrls = await Promise.all(
+        urls.map(async (value) => {
+            if (config.apiKey === "onework-bridge" && /^https?:\/\//i.test(value)) {
+                const token = typeof window !== "undefined" ? window.localStorage.getItem("canvas-agent-token") || "" : "";
+                const proxyUrl = `http://127.0.0.1:3000/api/ai/image-proxy?url=${encodeURIComponent(value)}`;
+                const resp = await fetch(proxyUrl, {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    signal: AbortSignal.timeout(60000),
+                });
+                if (!resp.ok) {
+                    throw new Error(apiText("imageProxyFailed", { status: resp.status }));
+                }
+                const blob = await resp.blob();
+                value = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result));
+                    reader.onerror = () => reject(new Error(apiText("imageProxyFailed", { status: "read" })));
+                    reader.readAsDataURL(blob);
+                });
+            }
+            return value;
+        }),
+    );
+    return dataUrls.map((dataUrl) => ({ id: nanoid(), dataUrl }));
+}
+
 function parseImagePayload(payload: ImageApiResponse) {
     if (typeof payload.code === "number" && payload.code !== 0) {
         throw new Error(payload.msg || apiText("requestFailed"));
@@ -759,7 +791,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
                 params: { size: requestSize, quality, count: n, ...(background ? { background } : {}) },
                 signal: options?.signal,
             });
-            return normalizePluginImages(result).map((dataUrl) => ({ id: nanoid(), dataUrl }));
+            return await normalizeToDataUrls(normalizePluginImages(result), requestConfig);
         } catch (error) {
             throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
@@ -793,7 +825,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
             },
         );
         const images = parseImagePayload(response.data);
-        return images;
+        return normalizeToDataUrls(images.map((item) => item.dataUrl), requestConfig);
     } catch (error) {
         throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
     }
@@ -819,7 +851,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
                 params: { size: requestSize, quality, count: n, ...(background ? { background } : {}) },
                 signal: options?.signal,
             });
-            return normalizePluginImages(result).map((dataUrl) => ({ id: nanoid(), dataUrl }));
+            return await normalizeToDataUrls(normalizePluginImages(result), requestConfig);
         } catch (error) {
             throw new Error(readGenerationError(error, requestConfig, apiText("requestFailed")));
         }
