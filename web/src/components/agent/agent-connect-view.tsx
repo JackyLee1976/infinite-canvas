@@ -52,6 +52,7 @@ export function AgentConnectView({
                 {isOneWorkBackend ? t("agent.connect.oneworkReminder") : t("agent.connect.pluginReminder")}
             </div>
             <div className="mt-1">{isOneWorkBackend ? t("agent.connect.oneworkReminderText") : t("agent.connect.pluginReminderText")}</div>
+            {!isOneWorkBackend ? (
             <div className="mt-2 grid gap-1.5">
                 {[
                     [t("agent.connect.removePlugin"), AGENT_PLUGIN_REMOVE_COMMAND],
@@ -68,6 +69,7 @@ export function AgentConnectView({
                     </div>
                 ))}
             </div>
+            ) : null}
         </div>
     );
     return (
