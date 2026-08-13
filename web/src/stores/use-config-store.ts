@@ -136,6 +136,8 @@ type ConfigStore = {
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
     setConfigDialogOpen: (isOpen: boolean) => void;
     clearPromptContinue: () => void;
+    /** OneWork 桥模式：合并桥 /api/ai/models 返回的生图模型到默认渠道（去重，image 能力）。 */
+    mergeBridgeModels: (models: Array<{ id?: string; provider?: string; capability?: string }>) => void;
 };
 
 const VIDEO_KEYWORDS = ["seedance", "video", "sora", "veo", "kling", "wan", "hailuo"];
@@ -219,6 +221,24 @@ export const useConfigStore = create<ConfigStore>()(
             openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
             clearPromptContinue: () => set({ shouldPromptContinue: false }),
+            mergeBridgeModels: (models) => {
+                const { config } = get();
+                if (!config.useOneWorkBridge) return;
+                const imageModels = (models || [])
+                    .map((m) => m.id || "")
+                    .filter((id) => /image|dall|gpt-image/i.test(id));
+                if (!imageModels.length) return;
+                const baseChannels = config.channels.length ? config.channels : [createModelChannel({ id: "default" })];
+                const channels = baseChannels.map((channel, index) => {
+                    if (index !== 0) return channel;
+                    const existing = new Set(channel.models.map((m) => m.name));
+                    const additions = imageModels
+                        .filter((id) => !existing.has(id))
+                        .map((name) => ({ name, capability: "image" as const }));
+                    return additions.length ? { ...channel, models: [...channel.models, ...additions] } : channel;
+                });
+                set({ config: { ...config, channels } });
+            },
         }),
         {
             name: CONFIG_STORE_KEY,

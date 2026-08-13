@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { App, Button, Tooltip } from "antd";
 import dayjs from "dayjs";
-import { Bot, History, MessageSquare, PanelRightClose, PlugZap, Plus, Sparkles, Terminal } from "lucide-react";
+import { Bot, History, MessageSquare, PanelRightClose, PlugZap, Plus, Settings2, Sparkles, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
@@ -14,6 +14,7 @@ import { randomId } from "@/lib/utils";
 import { uploadImage } from "@/services/image-storage";
 import { bindPendingAgentUserMessage, deleteAgentThreadMessages, deletePendingAgentUserMessage, moveAgentUserMessage, readAgentUserMessages, savePendingAgentUserMessage } from "@/services/agent-chat-storage";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { useConfigStore } from "@/stores/use-config-store";
 import { useAgentSkillStore } from "@/stores/use-agent-skill-store";
 import { useShallow } from "zustand/react/shallow";
 import { useAgentStore, type AgentBootstrapStatus, type AgentCanvasContext, type AgentChatItem, type AgentConversationState, type AgentModel, type AgentPendingApproval, type AgentPendingToolCall, type AgentPermissionMode, type AgentReasoningEffort, type AgentThreadSummary } from "@/stores/use-agent-store";
@@ -1299,6 +1300,7 @@ export function LocalAgentPanel({ embedded, headless, autoConnect }: { embedded?
         setAgentState({ messages: currentMessages.map((message, itemIndex) => itemIndex === index ? { ...message, text: isDelta ? `${message.text}${text}` : mergeStreamText(message.text, text) } : message) });
     };
 
+    const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const connectionStatus = t(connectError ? "agent.status.failed" : connected ? "agent.status.connected" : enabled ? "agent.status.connecting" : "agent.status.disconnected");
     const connectionStatusColor = connectError ? "#dc2626" : connected ? "#16a34a" : enabled ? "#d97706" : theme.node.muted;
     const content = (
@@ -1316,6 +1318,9 @@ export function LocalAgentPanel({ embedded, headless, autoConnect }: { embedded?
                             <Button size="small" type="text" className="!h-8 !w-8 !min-w-8 !px-0 @min-[560px]:!w-auto @min-[560px]:!min-w-0 @min-[560px]:!px-[7px]" aria-label={t("agent.panel.connectionSettingsLabel", { status: connectionStatus })} icon={<PlugZap className="size-3.5" style={{ color: connectionStatusColor }} />} onClick={() => setAgentState({ activeTab: "setup" })}>
                                 <span className="hidden @min-[560px]:inline">{connectionStatus}</span>
                             </Button>
+                        </Tooltip>
+                        <Tooltip title={t("agent.panel.openSettings")} placement="bottom">
+                            <Button size="small" type="text" className="!h-8 !w-8 !min-w-8 !px-0 @min-[560px]:!w-auto @min-[560px]:!min-w-0 @min-[560px]:!px-[7px]" aria-label={t("agent.panel.openSettings")} icon={<Settings2 className="size-3.5" />} onClick={() => openConfigDialog(false, "channels")} />
                         </Tooltip>
                     </div>
                 }

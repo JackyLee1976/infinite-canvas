@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
+import { modelOptionLabel, modelOptionName, selectableModelsByCapability, useConfigStore, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
 type ModelPickerProps = {
     config: AiConfig;
@@ -25,6 +25,25 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
     const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
     const current = value || "";
     const pickerPlaceholder = placeholder || t("settingsPanels.model.select");
+    const mergeBridgeModels = useConfigStore((store) => store.mergeBridgeModels);
+    useEffect(() => {
+        // OneWork 桥模式：从桥拉取生图模型列表并合并（设置→画布生图 配置后自动可见）
+        if (!config.useOneWorkBridge) return;
+        let cancelled = false;
+        const token = typeof window !== "undefined" ? window.localStorage.getItem("canvas-agent-token") || "" : "";
+        fetch("http://127.0.0.1:3000/api/ai/v1/models", {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            signal: AbortSignal.timeout(8000),
+        })
+            .then((resp) => (resp.ok ? resp.json() : Promise.reject(new Error(String(resp.status)))))
+            .then((payload) => {
+                if (!cancelled && Array.isArray(payload?.data)) mergeBridgeModels(payload.data);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [config.useOneWorkBridge, mergeBridgeModels]);
 
     useEffect(() => {
         const closeOtherPicker = (event: Event) => {
