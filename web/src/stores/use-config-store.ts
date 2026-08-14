@@ -189,8 +189,9 @@ export function resolveModelScript(config: AiConfig, value: string) {
 }
 
 function isAiConfigReady(config: AiConfig, model: string) {
-    // OneWork AI 桥模式：image 能力模型无需画布渠道 key（密钥由 OneWork 侧持有），视为已就绪
-    if (config.useOneWorkBridge && guessCapability(modelOptionName(model)) === "image") return true;
+    // OneWork AI 桥模式：image / text / audio 能力模型无需画布渠道 key（密钥由 OneWork 侧持有），视为已就绪
+    const cap = guessCapability(modelOptionName(model));
+    if (config.useOneWorkBridge && (cap === "image" || cap === "text" || cap === "audio")) return true;
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
 }
@@ -382,8 +383,9 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
     };
-    // OneWork AI 桥模式：image 能力请求经 OneWork 转发（密钥在 OneWork 侧，画布侧只传占位）
-    if (config.useOneWorkBridge && guessCapability(base.model) === "image") {
+    // OneWork AI 桥模式：image / text / audio 能力请求经 OneWork 转发（密钥在 OneWork 侧，画布侧只传占位）。
+    // image → /images/generations；text → /responses（桥转 chat-completions）；audio → /audio/speech。video 需要任务注册表，后续增强。
+    if (config.useOneWorkBridge && (guessCapability(base.model) === "image" || guessCapability(base.model) === "text" || guessCapability(base.model) === "audio")) {
         return {
             ...base,
             baseUrl: ONE_WORK_BRIDGE_BASE_URL,
