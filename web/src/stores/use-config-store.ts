@@ -224,17 +224,23 @@ export const useConfigStore = create<ConfigStore>()(
             mergeBridgeModels: (models) => {
                 const { config } = get();
                 if (!config.useOneWorkBridge) return;
-                const imageModels = (models || [])
-                    .map((m) => m.id || "")
-                    .filter((id) => /image|dall|gpt-image/i.test(id));
-                if (!imageModels.length) return;
+                // 桥 /api/ai/v1/models 返回 OneWork 全能力模型：{id, provider, capability}。
+                // 合并到默认渠道（channel[0]），capability 用桥返回值（缺失时按 id 推理），
+                // 使画布偏好设置的默认文本/视频/音频/图像模型下拉都能选到 OneWork 配置的模型。
+                const bridgeModels = (models || [])
+                    .map((m) => ({
+                        id: m.id || "",
+                        capability: ((["image", "video", "audio", "text"] as const).includes(m.capability as ModelCapability) ? m.capability as ModelCapability : guessCapability(m.id || "")) as ModelCapability,
+                    }))
+                    .filter((entry) => entry.id.trim());
+                if (!bridgeModels.length) return;
                 const baseChannels = config.channels.length ? config.channels : [createModelChannel({ id: "default" })];
                 const channels = baseChannels.map((channel, index) => {
                     if (index !== 0) return channel;
                     const existing = new Set(channel.models.map((m) => m.name));
-                    const additions = imageModels
-                        .filter((id) => !existing.has(id))
-                        .map((name) => ({ name, capability: "image" as const }));
+                    const additions = bridgeModels
+                        .filter((entry) => !existing.has(entry.id))
+                        .map((entry) => ({ name: entry.id, capability: entry.capability }));
                     return additions.length ? { ...channel, models: [...channel.models, ...additions] } : channel;
                 });
                 set({ config: { ...config, channels } });
