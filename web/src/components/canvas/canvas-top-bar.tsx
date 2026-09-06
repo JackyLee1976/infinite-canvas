@@ -154,13 +154,15 @@ export function CanvasTopBar({
             </div>
             <Modal title={t("canvas.shortcuts")} open={shortcutsOpen} onCancel={() => setShortcutsOpen(false)} footer={null} centered>
                 <div className="space-y-2 border-t pt-4 text-sm" style={{ borderColor: theme.node.stroke }}>
-                    <Shortcut keys={[t("canvas.shortcut.dragCanvas")]} value={t("canvas.shortcut.pan")} />
+                    <Shortcut keys={["Ctrl / Space", t("canvas.shortcut.drag")]} value={t("canvas.shortcut.toggleTool")} />
                     <Shortcut keys={[t("canvas.shortcut.wheel")]} value={t("canvas.shortcut.zoom")} />
                     <Shortcut keys={[t("canvas.shortcut.zoomSlider")]} value={t("canvas.shortcut.preciseZoom")} />
-                    <Shortcut keys={["Ctrl / Cmd", t("canvas.shortcut.drag")]} value={t("canvas.shortcut.boxSelect")} />
-                    <Shortcut keys={["Shift / Ctrl / Cmd", t("canvas.shortcut.click")]} value={t("canvas.shortcut.addSelection")} />
+                    <Shortcut keys={[t("canvas.shortcut.drag")]} value={t("canvas.shortcut.boxSelect")} />
+                    <Shortcut keys={["Shift / Cmd", t("canvas.shortcut.click")]} value={t("canvas.shortcut.addSelection")} />
                     <Shortcut keys={["Ctrl / Cmd", "A"]} value={t("canvas.shortcut.selectAll")} />
                     <Shortcut keys={["Ctrl / Cmd", "C / V"]} value={t("canvas.shortcut.copyPaste")} />
+                    <Shortcut keys={["Ctrl / Cmd", "G"]} value={t("canvas.shortcut.group")} />
+                    <Shortcut keys={["Ctrl / Cmd", "Shift", "G"]} value={t("canvas.shortcut.ungroup")} />
                     <Shortcut keys={["Ctrl / Cmd", "Z"]} value={t("canvas.undo")} />
                     <Shortcut keys={["Ctrl / Cmd", "Shift", "Z"]} value={t("canvas.redo")} />
                     <Shortcut keys={["Ctrl / Cmd", "Y"]} value={t("canvas.redo")} />

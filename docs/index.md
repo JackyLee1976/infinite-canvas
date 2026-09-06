@@ -6,7 +6,7 @@
 - [Features](/docs/overview/features)
 - [Deploy on Render](/docs/overview/render)
 - [Docker Deployment](/docs/overview/docker)
-- [Third-party GitHub Prompt Repositories](/docs/overview/third-party-prompt-repositories)
+- [Third-party Prompt Sources](/docs/overview/third-party-prompt-repositories)
 
 ## Canvas Guide
 
@@ -22,7 +22,6 @@
 ## Business
 
 - [Open-source License](/docs/business/license)
-- [Contributor License Agreement](/docs/business/cla)
 - [Business Cooperation](/docs/business/business)
 
 ## Support and Security
