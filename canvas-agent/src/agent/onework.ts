@@ -15,6 +15,9 @@ import { toolDescriptions, toolNames } from "../canvas/schemas.js";
  */
 export type OneWorkRunOptions = {
     model?: string;
+    /** 上游真实模型名（可选）：model 传 OneWork 模型配置 id（密钥查找键）时，
+     * 上游 API 的 model 参数由 upstreamModel 指定（桥侧 resolve_upstream_chat_model）。 */
+    upstreamModel?: string;
     provider?: string;
     callTool?: (name: string, input: unknown) => Promise<unknown>;
     onStart?: () => void;
@@ -45,7 +48,7 @@ export async function runOneWorkTurn(prompt: string, emit: AgentEmit, options: O
         const turnId = `onework-${Date.now()}`;
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
             // 流式：chatOnce 解析 SSE，content 增量经 emit 实时上屏（前端按 id upsert 打字机）
-            const resp = await chatOnce(messages, options.model || DEFAULT_MODEL, options.provider, emit, turnId, round);
+            const resp = await chatOnce(messages, options.model || DEFAULT_MODEL, options.provider, emit, turnId, round, options.upstreamModel);
             if (resp.error?.message) throw new Error(resp.error.message);
             const choice = resp.choices?.[0];
             const msg = choice?.message || {};
@@ -78,9 +81,11 @@ async function chatOnce(
     emit: AgentEmit,
     turnId: string,
     round: number,
+    upstreamModel?: string,
 ): Promise<OpenAiChatResponse> {
     const body: Record<string, unknown> = {
         model,
+        upstreamModel: upstreamModel?.trim() || undefined,
         messages,
         stream: true,
         tools: toolNames.map((name) => ({

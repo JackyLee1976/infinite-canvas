@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveOneWorkProjectRoot, syncWorkspaceFromOneWork, type OneWorkWorkspaceDeps } from "./workspace-sync.js";
+import { fetchOneWorkDefaultChatModel, resolveOneWorkChatModel, resolveOneWorkProjectRoot, syncWorkspaceFromOneWork, type OneWorkWorkspaceDeps } from "./workspace-sync.js";
 
 const config = { url: "http://127.0.0.1:17371", token: "test-token" };
 
@@ -74,4 +74,25 @@ test("syncWorkspaceFromOneWork：桥返回空快照返回 null 不更新", async
     }));
     assert.equal(applied, "");
     assert.equal(result, null);
+});
+
+test("resolveOneWorkChatModel 提取 id/modelId/provider，缺失返回 null", () => {
+    assert.deepEqual(resolveOneWorkChatModel({ chatModel: { id: "m1", modelId: "deepseek-chat", provider: "deepseek" } }), { id: "m1", modelId: "deepseek-chat", provider: "deepseek" });
+    assert.equal(resolveOneWorkChatModel({}), null);
+    assert.equal(resolveOneWorkChatModel({ chatModel: { id: "m1" } }), null);
+    assert.equal(resolveOneWorkChatModel({ chatModel: { id: " ", modelId: "x" } }), null);
+    assert.equal(resolveOneWorkChatModel(null), null);
+});
+
+test("fetchOneWorkDefaultChatModel 返回快照中的默认模型", async () => {
+    const model = await fetchOneWorkDefaultChatModel(config as never, {
+        fetchImpl: async () => okJson({ chatModel: { id: "m1", modelId: "deepseek-chat", provider: "deepseek" } }),
+    });
+    assert.deepEqual(model, { id: "m1", modelId: "deepseek-chat", provider: "deepseek" });
+});
+
+test("fetchOneWorkDefaultChatModel：快照无 chatModel / fetch 失败 / 401 均返回 null", async () => {
+    assert.equal(await fetchOneWorkDefaultChatModel(config as never, { fetchImpl: async () => okJson({}) }), null);
+    assert.equal(await fetchOneWorkDefaultChatModel(config as never, { fetchImpl: async () => { throw new Error("down"); } }), null);
+    assert.equal(await fetchOneWorkDefaultChatModel(config as never, { fetchImpl: async () => ({ ok: false, status: 401, json: async () => ({}) }) as unknown as Response }), null);
 });

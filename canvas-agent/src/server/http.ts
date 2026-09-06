@@ -10,7 +10,7 @@ import type { CodexReasoningEffort, CodexSkillSelector } from "../agent/codex-pr
 import type { AgentAttachment, AgentPermissionMode } from "../agent/types.js";
 import { AGENT_PROTOCOL_VERSION, CanvasSession } from "../canvas/session.js";
 import { DEFAULT_PORT, ensureSiteWorkspace, loadConfig, saveConfig, updateSiteWorkspace, type CanvasAgentConfig } from "../config.js";
-import { syncWorkspaceFromOneWork } from "../workspace-sync.js";
+import { syncWorkspaceFromOneWork, fetchOneWorkDefaultChatModel } from "../workspace-sync.js";
 import { logger } from "../utils/logger.js";
 import { checkVersions } from "../version-check.js";
 import { SkillStore, SkillStoreError } from "../skills/store.js";
@@ -442,13 +442,20 @@ export function startHttpServer() {
             sourceClientId: clientId,
             message: { id: `${threadId}:pending:synthetic:user`, itemId: "synthetic:user", clientMessageId: messageId, threadId, turnId: "", role: "user", text: messageText },
         });
-        void runOneWorkTurn(prompt, lifecycleEmit, {
-            model: String(req.body?.model || "") || undefined,
-            provider: String(req.body?.provider || "") || undefined,
-            callTool: (name, input) => session.callTool(name, input),
-            onStart: () => session.bindClient(clientId),
-            onFinish: () => session.setCodexState({ busy: false, threadId, turnId: "" }),
-        });
+        // 模型兜底链：请求显式 model → 桥快照里的 OneWork 默认对话模型（跟随
+        // OneWork 模型设置，用户无需在画布单独配置）→ driver 内置 DEFAULT_MODEL。
+        void (async () => {
+            const requestedModel = String(req.body?.model || "").trim();
+            const fallback = requestedModel ? null : await fetchOneWorkDefaultChatModel(config).catch(() => null);
+            runOneWorkTurn(prompt, lifecycleEmit, {
+                model: requestedModel || fallback?.id || undefined,
+                upstreamModel: requestedModel ? String(req.body?.upstreamModel || "") || undefined : fallback?.modelId || undefined,
+                provider: String(req.body?.provider || "") || undefined,
+                callTool: (name, input) => session.callTool(name, input),
+                onStart: () => session.bindClient(clientId),
+                onFinish: () => session.setCodexState({ busy: false, threadId, turnId: "" }),
+            });
+        })();
         res.json({ ok: true });
     });
     app.use((_req, res) => res.status(404).json({ ok: false, error: "not found" }));

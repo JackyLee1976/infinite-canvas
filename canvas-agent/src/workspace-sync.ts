@@ -33,6 +33,35 @@ export function resolveOneWorkProjectRoot(snapshot: unknown): string {
     return typeof raw.taskDataDir === "string" && raw.taskDataDir.trim() ? raw.taskDataDir.trim() : "";
 }
 
+/** 从桥快照提取 OneWork 默认对话模型（id/modelId/provider）。纯函数；缺失返回 null。 */
+export function resolveOneWorkChatModel(snapshot: unknown): { id: string; modelId: string; provider: string } | null {
+    const raw = typeof snapshot === "object" && snapshot !== null ? (snapshot as Record<string, unknown>) : {};
+    const chatModel = typeof raw.chatModel === "object" && raw.chatModel !== null ? (raw.chatModel as Record<string, unknown>) : null;
+    if (!chatModel) return null;
+    const id = typeof chatModel.id === "string" ? chatModel.id.trim() : "";
+    const modelId = typeof chatModel.modelId === "string" ? chatModel.modelId.trim() : "";
+    if (!id || !modelId) return null;
+    return { id, modelId, provider: typeof chatModel.provider === "string" ? chatModel.provider : "" };
+}
+
+/** 经桥拉取 OneWork 默认对话模型（id 用于密钥查找，modelId 为上游真实模型名）。失败返回 null。 */
+export async function fetchOneWorkDefaultChatModel(config: CanvasAgentConfig, deps: Pick<OneWorkWorkspaceDeps, "fetchImpl" | "timeoutMs"> = {}): Promise<{ id: string; modelId: string; provider: string } | null> {
+    const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+    if (typeof fetchImpl !== "function") return null;
+    let resp: Response;
+    try {
+        resp = await fetchImpl(ONE_WORK_CONTEXT_URL, {
+            headers: { authorization: `Bearer ${config.token}` },
+            signal: AbortSignal.timeout(deps.timeoutMs ?? 3_000),
+        });
+    } catch {
+        return null;
+    }
+    if (!resp.ok) return null;
+    const body = (await resp.json().catch(() => null)) as unknown;
+    return resolveOneWorkChatModel(body);
+}
+
 /**
  * 拉取 OneWork 上下文并把当前项目根目录同步为画布 Agent 工作区。
  * 返回同步后的新工作区路径；未变化/失败返回 null（调用方静默处理）。
