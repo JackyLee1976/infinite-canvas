@@ -239,6 +239,10 @@ export default {
         miniMapClose: "关闭小地图",
         resetView: "重置视图",
         zoom: "放大/缩小画布",
+        owBridge: {
+            assetInserted: "已从 OneWork 插入素材",
+            assetInsertFailed: "素材插入失败，请确认已连接 OneWork 本地 Agent",
+        },
         agentConnected: "Agent 已连接",
         agentConnecting: "Agent {{activity}}",
         agentDisconnected: "Agent 未连接",
@@ -296,6 +300,10 @@ export default {
             pan: "平移视图",
             wheel: "滚轮",
             zoom: "缩放画布",
+        owBridge: {
+            assetInserted: "已从 OneWork 插入素材",
+            assetInsertFailed: "素材插入失败，请确认已连接 OneWork 本地 Agent",
+        },
             zoomSlider: "缩放滑杆",
             preciseZoom: "精确调整缩放",
             boxSelect: "框选多个节点",

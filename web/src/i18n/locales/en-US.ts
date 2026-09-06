@@ -239,6 +239,10 @@ export default {
         miniMapClose: "Close minimap",
         resetView: "Reset view",
         zoom: "Zoom canvas",
+        owBridge: {
+            assetInserted: "Asset inserted from OneWork",
+            assetInsertFailed: "Asset insert failed. Make sure the OneWork local Agent is connected.",
+        },
         agentConnected: "Agent connected",
         agentConnecting: "Agent {{activity}}",
         agentDisconnected: "Agent disconnected",
@@ -296,6 +300,10 @@ export default {
             pan: "Pan view",
             wheel: "Mouse wheel",
             zoom: "Zoom canvas",
+        owBridge: {
+            assetInserted: "Asset inserted from OneWork",
+            assetInsertFailed: "Asset insert failed. Make sure the OneWork local Agent is connected.",
+        },
             zoomSlider: "Zoom slider",
             preciseZoom: "Adjust zoom precisely",
             boxSelect: "Select multiple nodes",

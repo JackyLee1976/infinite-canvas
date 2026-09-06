@@ -42,6 +42,7 @@ import { CanvasZoomControls } from "@/components/canvas/canvas-zoom-controls";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useAgentBridge } from "@/pages/canvas/hooks/use-agent-bridge";
+import { useOwBridge } from "@/pages/canvas/hooks/use-ow-bridge";
 import { usePluginHost } from "@/pages/canvas/hooks/use-plugin-host";
 import { buildNodeMentionReferences, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { exportCanvasProjects } from "@/lib/canvas/canvas-export";
@@ -2691,6 +2692,21 @@ function InfiniteCanvasPage() {
     );
 
     // Memoize every callback and render function passed to CanvasNode.
+    // OneWork 素材注入桥（刀2 P2-2）：监听 parent.postMessage 并注入图片/文本/视频节点。
+    const insertImage = useCallback(
+        (image: { title: string; dataUrl: string; storageKey?: string; mimeType?: string }) => {
+            void insertAssistantImage({ id: `ow-${Date.now()}`, prompt: image.title, dataUrl: image.dataUrl, storageKey: image.storageKey });
+        },
+        [insertAssistantImage],
+    );
+    useOwBridge({
+        enabled: projectLoaded,
+        insertImage,
+        insertText: insertAssistantText,
+        insertVideo: (payload) => handleAssetInsert(payload as InsertAssetPayload),
+        message,
+        t,
+    });
     // CanvasNode uses React.memo, but new prop references would invalidate it on every render and rerender every node
     // during click, hover, or viewport changes, which is especially expensive for Markdown. These useCallback values
     // and their memoized map/handler dependencies remain stable during interaction, so unchanged nodes do not rerender.
