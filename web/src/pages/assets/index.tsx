@@ -1,12 +1,15 @@
-import { Copy, Download, PencilLine, Search, Trash2, Upload } from "lucide-react";
+import { Copy, Download, PackageCheck, PencilLine, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { App, Button, Card, Drawer, Empty, Form, Image, Input, Modal, Pagination, Select, Space, Tag, Typography } from "antd";
+import { App, Button, Card, Drawer, Empty, Form, Image, Input, Modal, Pagination, Select, Space, Tag, Tooltip, Typography } from "antd";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
 import { useCopyText } from "@/hooks/use-copy-text";
 import { formatBytes, readFileAsDataUrl } from "@/lib/image-utils";
 import { uploadImage } from "@/services/image-storage";
+import { getImageBlob } from "@/services/image-storage";
+import { getMediaBlob } from "@/services/file-storage";
+import { exportAssetToOneWork, OwArtifactError } from "@/services/api/ow-artifact";
 import { cn } from "@/lib/utils";
 import { useAssetStore, type Asset, type AssetKind, type ImageAsset } from "@/stores/use-asset-store";
 import { exportAssets, readAssetPackage } from "./asset-transfer";
@@ -45,6 +48,7 @@ export default function AssetsPage() {
     const [isAssetOpen, setIsAssetOpen] = useState(false);
     const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
     const [deletingAsset, setDeletingAsset] = useState<Asset | null>(null);
+    const [exportingId, setExportingId] = useState<string | null>(null);
     const [formKind, setFormKind] = useState<AssetKind>("text");
     const [imageDraft, setImageDraft] = useState<ImageDraft>(null);
     const coverUrl = Form.useWatch("coverUrl", form) || "";
@@ -182,6 +186,47 @@ export default function AssetsPage() {
         setDeletingAsset(null);
     };
 
+    const deliverableErrorMessage = (error: unknown): string => {
+        if (error instanceof OwArtifactError) {
+            switch (error.code) {
+                case "unauthorized":
+                case "network":
+                    return t("apiErrors.oneworkBridgeNotConnected");
+                case "too-large":
+                    return t("apiErrors.deliverableTooLarge");
+                case "timeout":
+                    return t("apiErrors.deliverableTimeout");
+                case "http":
+                    return t("apiErrors.deliverableExportFailed", { status: error.httpStatus ?? "?" });
+                default:
+                    return t("assets.deliverableExportUnknown");
+            }
+        }
+        return error instanceof Error ? error.message : String(error);
+    };
+
+    const toOwAsset = (asset: Asset) => {
+        if (asset.kind === "video") return { kind: "video" as const, title: asset.title, url: asset.data.url, storageKey: asset.data.storageKey, mimeType: asset.data.mimeType };
+        if (asset.kind === "image") return { kind: "image" as const, title: asset.title, dataUrl: asset.data.dataUrl, storageKey: asset.data.storageKey, mimeType: asset.data.mimeType };
+        return null;
+    };
+
+    const exportDeliverable = async (asset: Asset) => {
+        const owAsset = toOwAsset(asset);
+        if (!owAsset) return;
+        setExportingId(asset.id);
+        try {
+            const readBlob = async (key: string) => (owAsset.kind === "image" ? await getImageBlob(key) : await getMediaBlob(key));
+            const result = await exportAssetToOneWork(owAsset, { readBlob });
+            if (result.deduplicated) message.info(t("assets.deliverableDeduplicated"));
+            else message.success(t("assets.deliverableExported"));
+        } catch (error) {
+            message.error(deliverableErrorMessage(error));
+        } finally {
+            setExportingId(null);
+        }
+    };
+
     return (
         <div className="flex h-full flex-col overflow-hidden bg-background text-stone-900 dark:text-stone-100">
             <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-8 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.14)_1px,transparent_1px)]">
@@ -260,7 +305,7 @@ export default function AssetsPage() {
                 <div className="mx-auto flex max-w-7xl flex-col gap-5">
                     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {visibleAssets.map((asset) => (
-                            <AssetCard key={asset.id} asset={asset} onOpen={() => setPreviewAsset(asset)} onEdit={() => openEdit(asset)} onCopy={copyAssetText} onDownload={downloadImage} onDelete={() => setDeletingAsset(asset)} />
+                            <AssetCard key={asset.id} asset={asset} onOpen={() => setPreviewAsset(asset)} onEdit={() => openEdit(asset)} onCopy={copyAssetText} onDownload={downloadImage} onDelete={() => setDeletingAsset(asset)} onExport={() => void exportDeliverable(asset)} exporting={exportingId === asset.id} />
                         ))}
                     </div>
 
@@ -399,7 +444,7 @@ export default function AssetsPage() {
     );
 }
 
-function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { asset: Asset; onOpen: () => void; onEdit: () => void; onCopy: (asset: Asset) => void; onDownload: (asset: Asset) => void; onDelete: () => void }) {
+function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete, onExport, exporting }: { asset: Asset; onOpen: () => void; onEdit: () => void; onCopy: (asset: Asset) => void; onDownload: (asset: Asset) => void; onDelete: () => void; onExport: () => void; exporting: boolean }) {
     const { t } = useTranslation();
     const cover = asset.coverUrl || (asset.kind === "image" ? asset.data.dataUrl : "");
     const summary = assetSummary(asset);
@@ -442,7 +487,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     </div>
                 </div>
             </button>
-            <div className="flex items-center gap-2 px-4 pb-4">
+            <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
                 <Button size="small" onClick={onOpen}>
                     {t("common.view")}
                 </Button>
@@ -460,6 +505,11 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     <Button size="small" icon={<Download className="size-3.5" />} onClick={() => onDownload(asset)}>
                         {t("common.download")}
                     </Button>
+                ) : null}
+                {asset.kind === "image" || asset.kind === "video" ? (
+                    <Tooltip title={t("assets.exportAsDeliverable")}>
+                        <Button size="small" icon={<PackageCheck className="size-3.5" />} loading={exporting} onClick={onExport} aria-label={t("assets.exportAsDeliverable")} />
+                    </Tooltip>
                 ) : null}
                 <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
                     {t("common.delete")}
