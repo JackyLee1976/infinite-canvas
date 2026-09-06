@@ -10,6 +10,7 @@ import type { CodexReasoningEffort, CodexSkillSelector } from "../agent/codex-pr
 import type { AgentAttachment, AgentPermissionMode } from "../agent/types.js";
 import { AGENT_PROTOCOL_VERSION, CanvasSession } from "../canvas/session.js";
 import { DEFAULT_PORT, ensureSiteWorkspace, loadConfig, saveConfig, updateSiteWorkspace, type CanvasAgentConfig } from "../config.js";
+import { syncWorkspaceFromOneWork } from "../workspace-sync.js";
 import { logger } from "../utils/logger.js";
 import { checkVersions } from "../version-check.js";
 import { SkillStore, SkillStoreError } from "../skills/store.js";
@@ -163,8 +164,13 @@ export function startHttpServer() {
         res.setHeader("Cache-Control", "no-store");
         res.type(path.extname(filePath)).send(await readFile(filePath));
     }));
-    app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}) })));
-    app.get("/agent/codex/workspace", (_req, res) => {
+    app.post("/api/tools", route(async (req, res) => {
+        // 刀4 P4-1：OneWork 当前项目目录对齐 agent 工作区（失败静默，不阻塞工具调用）。
+        await syncWorkspaceFromOneWork(config).catch(() => null);
+        return res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}) });
+    }));
+    app.get("/agent/codex/workspace", async (_req, res) => {
+        await syncWorkspaceFromOneWork(config).catch(() => null);
         const workspace = ensureSiteWorkspace(config);
         res.json({ ok: true, workspace, conversation: session.conversationStateSnapshot });
     });
