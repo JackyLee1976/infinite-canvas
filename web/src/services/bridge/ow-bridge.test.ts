@@ -8,12 +8,39 @@ import { OW_BRIDGE_BASE_URL } from "../api/ow-artifact";
 import {
     OwBridgeError,
     isOwInsertAssetMessage,
+    isOwWorkspaceSwitchedMessage,
     normalizeOwInsertAsset,
     OW_INSERT_ASSET_MESSAGE_TYPE,
+    OW_WORKSPACE_SWITCHED_MESSAGE_TYPE,
     resolveBridgeImageSource,
 } from "./ow-bridge";
 
 const RAW_URL = `${OW_BRIDGE_BASE_URL}/api/ow/artifacts/raw?path=image%2Fref.png`;
+
+describe("isOwWorkspaceSwitchedMessage（工作区切换消息校验，隔离专项 P0）", () => {
+    it("合法消息 → true", () => {
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: { workspaceId: "ws-1", workspaceName: "默认工作区" } })).toBe(true);
+    });
+
+    it("type 不匹配 / 非对象 / 数组 → false", () => {
+        expect(isOwWorkspaceSwitchedMessage({ type: "other", workspace: { workspaceId: "ws", workspaceName: "n" } })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage(null)).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage([{ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE }])).toBe(false);
+    });
+
+    it("workspace 非对象 / 数组 → false", () => {
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: "ws" })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: [{ workspaceId: "ws" }] })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE })).toBe(false);
+    });
+
+    it("workspaceId / workspaceName 缺失或空 → false", () => {
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: { workspaceName: "n" } })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: { workspaceId: "ws" } })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: { workspaceId: "", workspaceName: "n" } })).toBe(false);
+        expect(isOwWorkspaceSwitchedMessage({ type: OW_WORKSPACE_SWITCHED_MESSAGE_TYPE, workspace: { workspaceId: "ws", workspaceName: "  " } })).toBe(false);
+    });
+});
 
 const okBytes = (bytes: Uint8Array, type = "image/png") =>
     new Response(new Blob([bytes as BlobPart], { type }), { status: 200, headers: { "Content-Type": type } });

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 import { useAssetStore, type Asset } from "@/stores/use-asset-store";
+import { useVisibleAssets } from "@/hooks/use-ow-workspace-visible";
 
 export type InsertAssetPayload = { kind: "text"; content: string; title: string } | { kind: "image"; dataUrl: string; title: string; storageKey?: string } | { kind: "video"; url: string; title: string; storageKey?: string; width?: number; height?: number };
 
@@ -54,7 +55,8 @@ function PickerCard({ title, kind, cover, onClick }: { title: string; kind: stri
 
 function MyAssetsTab({ onInsert }: { onInsert: (payload: InsertAssetPayload) => void }) {
     const { t } = useTranslation();
-    const assets = useAssetStore((state) => state.assets);
+    // OneWork 工作区隔离（P0）：素材选择器只列出当前工作区的素材。
+    const assets = useVisibleAssets();
     const [keyword, setKeyword] = useState("");
     const [kindFilter, setKindFilter] = useState("all");
     const [page, setPage] = useState(1);

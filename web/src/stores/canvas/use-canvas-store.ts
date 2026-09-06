@@ -6,6 +6,7 @@ import i18n from "@/i18n";
 import { localForageStorage } from "@/lib/localforage-storage";
 import type { CanvasBackgroundMode } from "@/lib/canvas-theme";
 import type { CanvasAssistantSession, CanvasConnection, CanvasNodeData, ViewportTransform } from "@/types/canvas";
+import { useOwWorkspaceStore } from "@/stores/ow-workspace-store";
 
 export type CanvasProject = {
     id: string;
@@ -19,6 +20,8 @@ export type CanvasProject = {
     backgroundMode: CanvasBackgroundMode;
     showImageInfo: boolean;
     viewport: ViewportTransform;
+    /** OneWork 工作区隔离键（工作区数据隔离 P0，基准 202609062300）；存量数据无此字段（legacy，归属打标后进入严格隔离）。 */
+    owWorkspaceId?: string;
 };
 
 export type CanvasDeletedProject = {
@@ -87,6 +90,8 @@ export const useCanvasStore = create<CanvasStore>()(
                     backgroundMode: "lines",
                     showImageInfo: false,
                     viewport: initialViewport,
+                    // OneWork 工作区归属（隔离专项 P0）：无上下文（独立浏览器）时不打标。
+                    owWorkspaceId: useOwWorkspaceStore.getState().workspaceId ?? undefined,
                 };
                 set((state) => ({ projects: [project, ...state.projects] }));
                 return id;
@@ -105,6 +110,8 @@ export const useCanvasStore = create<CanvasStore>()(
                     backgroundMode: source.backgroundMode || "lines",
                     showImageInfo: source.showImageInfo || false,
                     viewport: source.viewport || initialViewport,
+                    // 导入归属当前 OneWork 工作区（隔离专项 P0）；导出文件携带的旧标记不迁移。
+                    owWorkspaceId: useOwWorkspaceStore.getState().workspaceId ?? undefined,
                 };
                 set((state) => ({ projects: [project, ...state.projects] }));
                 return project.id;

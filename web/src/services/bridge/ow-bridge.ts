@@ -44,6 +44,39 @@ export type OwBridgeAsset = {
 export const OW_INSERT_ASSET_MESSAGE_TYPE = "onework:canvas:insert-asset";
 export const OW_BRIDGE_RAW_TIMEOUT_MS = 30_000;
 
+/**
+ * OneWork 工作区切换通知（工作区数据隔离专项 P0，基准 202609062300）。
+ *
+ * 契约（parent → iframe，postMessage targetOrigin="*"，与 insert-asset 同构）：
+ *   { type: "onework:canvas:workspace-switched", workspace: { workspaceId: string, workspaceName: string } }
+ *
+ * 画布端以 workspaceId 作为内容数据隔离键：项目/素材记录打标 owWorkspaceId，
+ * UI 仅展示当前工作区的记录；存储层全量保留（多工作区共存，旧数据不删除）。
+ * 消息幂等：OneWork 侧会在 iframe 挂载/加载时重复投递当前工作区，重复应用无副作用。
+ */
+export const OW_WORKSPACE_SWITCHED_MESSAGE_TYPE = "onework:canvas:workspace-switched";
+
+export type OwWorkspaceSwitchedMessage = {
+    type: typeof OW_WORKSPACE_SWITCHED_MESSAGE_TYPE;
+    workspace: { workspaceId: string; workspaceName: string };
+};
+
+/**
+ * 校验 parent.postMessage 是否为 OneWork 工作区切换消息。
+ * 安全：仅接受 type 精确匹配 + 非数组 workspace 对象 + workspaceId/workspaceName 均为非空字符串。
+ */
+export function isOwWorkspaceSwitchedMessage(data: unknown): data is OwWorkspaceSwitchedMessage {
+    if (typeof data !== "object" || data === null) return false;
+    const candidate = data as { type?: unknown; workspace?: unknown };
+    if (candidate.type !== OW_WORKSPACE_SWITCHED_MESSAGE_TYPE) return false;
+    const workspace = candidate.workspace;
+    if (typeof workspace !== "object" || workspace === null || Array.isArray(workspace)) return false;
+    const w = workspace as { workspaceId?: unknown; workspaceName?: unknown };
+    if (typeof w.workspaceId !== "string" || !w.workspaceId.trim()) return false;
+    if (typeof w.workspaceName !== "string" || !w.workspaceName.trim()) return false;
+    return true;
+}
+
 export type OwBridgeErrorCode = "unauthorized" | "timeout" | "http" | "network" | "unsupported" | "invalid";
 
 export class OwBridgeError extends Error {

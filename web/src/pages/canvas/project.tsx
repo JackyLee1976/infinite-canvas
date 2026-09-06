@@ -15,7 +15,9 @@ import { nanoid } from "nanoid";
 import { getDataUrlByteSize, readImageMeta } from "@/lib/image-utils";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { canvasThemes, type CanvasBackgroundMode } from "@/lib/canvas-theme";
+import { isRecordVisibleInWorkspace } from "@/lib/ow-workspace-isolation";
 import { useAssetStore } from "@/stores/use-asset-store";
+import { useOwWorkspaceStore } from "@/stores/ow-workspace-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { cropDataUrl, splitDataUrl, upscaleDataUrl } from "@/lib/canvas/canvas-image-data";
 import { fitNodeSize, nodeSizeFromRatio } from "@/lib/canvas/canvas-node-size";
@@ -212,6 +214,8 @@ function InfiniteCanvasPage() {
     const renameProject = useCanvasStore((state) => state.renameProject);
     const deleteProjects = useCanvasStore((state) => state.deleteProjects);
     const currentProject = useCanvasStore((state) => state.projects.find((project) => project.id === projectId));
+    // OneWork 工作区隔离（P0）：当前工作区上下文（workspaceId 变化会触发下方加载 effect 重定向）。
+    const owWorkspaceId = useOwWorkspaceStore((state) => state.workspaceId);
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const [nodes, setNodes] = useState<CanvasNodeData[]>([]);
     const [connections, setConnections] = useState<CanvasConnection[]>([]);
@@ -428,7 +432,8 @@ function InfiniteCanvasPage() {
         if (!hydrated) return;
         setProjectLoaded(false);
         const project = openProject(projectId);
-        if (!project) {
+        // OneWork 工作区隔离（P0）：项目不存在或归属其他 OneWork 工作区 → 导航回项目列表。
+        if (!project || !isRecordVisibleInWorkspace(project, owWorkspaceId)) {
             navigate("/canvas", { replace: true });
             return;
         }
@@ -460,7 +465,7 @@ function InfiniteCanvasPage() {
             setProjectLoaded(true);
         };
         void restore();
-    }, [hydrated, navigate, openProject, projectId]);
+    }, [hydrated, navigate, openProject, owWorkspaceId, projectId]);
 
     useEffect(() => {
         if (!projectLoaded) return;

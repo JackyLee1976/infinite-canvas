@@ -11,6 +11,7 @@ import { CanvasDeleteProjectsDialog } from "@/components/canvas/canvas-delete-pr
 import { CanvasProjectCard } from "@/components/canvas/canvas-project-card";
 import type { CanvasExportFile } from "@/types/canvas-export";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
+import { useVisibleProjects } from "@/hooks/use-ow-workspace-visible";
 import { useCanvasUiStore } from "@/stores/canvas/use-canvas-ui-store";
 import { exportCanvasProjects } from "@/lib/canvas/canvas-export";
 import { hasAgentUrlBootstrap } from "@/lib/agent/agent-url-bootstrap";
@@ -23,7 +24,8 @@ export default function CanvasPage() {
     const inputRef = useRef<HTMLInputElement>(null);
     const autoOpenRef = useRef(false);
     const hydrated = useCanvasStore((state) => state.hydrated);
-    const projects = useCanvasStore((state) => state.projects);
+    // OneWork 工作区隔离（P0）：只展示当前工作区的项目（存储层全量保留，不删除旧数据）。
+    const projects = useVisibleProjects();
     const createProject = useCanvasStore((state) => state.createProject);
     const importProject = useCanvasStore((state) => state.importProject);
     const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);

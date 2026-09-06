@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { localForageStorage } from "@/lib/localforage-storage";
 import { cleanupUnusedImages, resolveImageUrl, uploadImage } from "@/services/image-storage";
 import { cleanupUnusedMedia, resolveMediaUrl } from "@/services/file-storage";
+import { useOwWorkspaceStore } from "@/stores/ow-workspace-store";
 
 export type AssetKind = "text" | "image" | "video";
 export type TextAsset = AssetBase<"text"> & { data: { content: string } };
@@ -23,6 +24,8 @@ type AssetBase<T extends AssetKind> = {
     createdAt: string;
     updatedAt: string;
     metadata?: Record<string, unknown>;
+    /** OneWork 工作区隔离键（工作区数据隔离 P0，基准 202609062300）；存量数据无此字段（legacy）。 */
+    owWorkspaceId?: string;
 };
 
 type AssetStore = {
@@ -71,7 +74,9 @@ export const useAssetStore = create<AssetStore>()(
             addAsset: (asset) => {
                 const now = new Date().toISOString();
                 const id = nanoid();
-                set((state) => ({ assets: [{ ...asset, id, createdAt: now, updatedAt: now } as Asset, ...state.assets] }));
+                // OneWork 工作区归属（隔离专项 P0）：无上下文（独立浏览器）时不打标。
+                const owWorkspaceId = useOwWorkspaceStore.getState().workspaceId ?? undefined;
+                set((state) => ({ assets: [{ ...asset, id, createdAt: now, updatedAt: now, owWorkspaceId } as Asset, ...state.assets] }));
                 return id;
             },
             updateAsset: (id, patch) =>

@@ -14,6 +14,7 @@ import { fetchSourcePrompts, type Prompt } from "@/services/api/prompts";
 import { uploadMediaFile } from "@/services/file-storage";
 import { uploadImage } from "@/services/image-storage";
 import { useAssetStore, type Asset, type AssetKind } from "@/stores/use-asset-store";
+import { useVisibleAssets } from "@/hooks/use-ow-workspace-visible";
 import { usePromptSourceStore } from "@/stores/use-prompt-source-store";
 import { CANVAS_SIDE_PANEL_MAX_WIDTH, CANVAS_SIDE_PANEL_MIN_WIDTH, CANVAS_SIDE_PANEL_MOTION_MS, useCanvasSidePanelStore } from "@/stores/use-canvas-side-panel-store";
 import { useThemeStore } from "@/stores/use-theme-store";
@@ -311,7 +312,8 @@ function buildInsertPayload(asset: Asset): InsertAssetPayload {
 const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert, theme }: { onInsert: (payload: InsertAssetPayload) => void; theme: CanvasTheme }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
-    const assets = useAssetStore((state) => state.assets);
+    // OneWork 工作区隔离（P0）：画布侧面板素材只展示当前工作区（存储全量保留）。
+    const assets = useVisibleAssets();
     const addAsset = useAssetStore((state) => state.addAsset);
     const removeAsset = useAssetStore((state) => state.removeAsset);
     const [keyword, setKeyword] = useState("");

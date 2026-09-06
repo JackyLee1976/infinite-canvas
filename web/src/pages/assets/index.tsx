@@ -5,6 +5,7 @@ import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
 import { useCopyText } from "@/hooks/use-copy-text";
+import { useVisibleAssets } from "@/hooks/use-ow-workspace-visible";
 import { formatBytes, readFileAsDataUrl } from "@/lib/image-utils";
 import { getMediaBlob } from "@/services/file-storage";
 import { getImageBlob, uploadImage } from "@/services/image-storage";
@@ -35,7 +36,8 @@ export default function AssetsPage() {
     const coverInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const assetInputRef = useRef<HTMLInputElement>(null);
-    const assets = useAssetStore((state) => state.assets);
+    // OneWork 工作区隔离（P0）：素材库只展示当前工作区的素材（存储全量保留）。
+    const assets = useVisibleAssets();
     const addAsset = useAssetStore((state) => state.addAsset);
     const updateAsset = useAssetStore((state) => state.updateAsset);
     const removeAsset = useAssetStore((state) => state.removeAsset);
