@@ -43,6 +43,7 @@ export const toolNames = [
     "assets_list",
     "assets_add",
     "ow_context_get",
+    "ow_context_render",
 ] as const;
 export type ToolName = (typeof toolNames)[number];
 
@@ -125,6 +126,7 @@ export const toolInputSchemas = {
     assets_list: z.object({ kind: z.enum(["all", "text", "image", "video"]).optional(), keyword: z.string().optional(), page: z.number().optional(), pageSize: z.number().optional() }),
     assets_add: z.object({ kind: z.enum(["text", "image"]), title: z.string(), content: z.string().optional(), imageUrl: z.string().optional(), tags: z.array(z.string()).optional(), source: z.string().optional(), note: z.string().optional() }),
     ow_context_get: z.object({}),
+    ow_context_render: z.object({ position: z.object({ x: z.number(), y: z.number() }).optional() }),
 } satisfies Record<ToolName, z.AnyZodObject>;
 
 export const toolDescriptions: Record<ToolName, string> = {
@@ -163,4 +165,5 @@ export const toolDescriptions: Record<ToolName, string> = {
     assets_list: "列出用户「我的素材」，支持 kind（text/image/video）过滤、keyword 搜索和 page/pageSize 分页。为控制体积不返回图片/视频原始 data，仅返回封面与元信息。",
     assets_add: "向「我的素材」新增素材。kind=text 时用 content 传文本内容；kind=image 时用 imageUrl 传图片地址或 dataURL。可附带 title、tags、source、note。",
     ow_context_get: "读取 OneWork 当前工作上下文快照（只读）：当前项目、当前任务、当前文档摘要与格式化 markdown（workContextMarkdown）。用于把 OneWork 的项目/任务/文档情况整理成画布卡片或做分析报告。OneWork 未打开画布面板或未同步时返回错误。",
+    ow_context_render: "读取 OneWork 当前工作上下文并把项目/任务/文档渲染为当前画布上的文本卡片（复用文本节点+连线，链式引用形态），卡片可直接在画布上查看/编辑。position 可选，指定卡片起始坐标（默认屏幕左上角）。OneWork 未同步或当前未打开画布时返回错误。",
 };

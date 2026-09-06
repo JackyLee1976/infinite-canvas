@@ -3,10 +3,11 @@ import type { NavigateFunction } from "react-router-dom";
 import i18n from "@/i18n";
 import { fetchPrompts } from "@/services/api/prompts";
 import { fetchOwContext, OwContextError } from "@/services/api/ow-context";
+import { buildOwContextCards } from "@/services/api/ow-context-cards";
 import { uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondOptions, videoSizeOptions } from "@/components/video-settings-panel";
-import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
+import type { CanvasAgentOp, CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import { useAssetStore } from "@/stores/use-asset-store";
 import { modelOptionLabel, modelOptionName, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore } from "@/stores/use-config-store";
@@ -26,6 +27,7 @@ export const SITE_TOOL_NAMES = [
     "assets_list",
     "assets_add",
     "ow_context_get",
+    "ow_context_render",
 ] as const;
 
 export type SiteToolName = (typeof SITE_TOOL_NAMES)[number];
@@ -49,10 +51,14 @@ export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
     get assets_list() { return siteText("assetList"); },
     get assets_add() { return siteText("assetAdd"); },
     get ow_context_get() { return siteText("owContext"); },
+    get ow_context_render() { return siteText("owContextRender"); },
 };
 
 type SiteToolInput = Record<string, unknown>;
-type SiteToolContext = { canvasSnapshot?: CanvasAgentSnapshot | null };
+type SiteToolContext = {
+    canvasSnapshot?: CanvasAgentSnapshot | null;
+    applyOps?: (ops?: CanvasAgentOp[]) => unknown;
+};
 type GenerationStatus = "idle" | "queued" | "running" | "succeeded" | "failed";
 type GenerationStatusItem = { id: string; source: "canvas" | "image" | "video"; status: GenerationStatus; kind?: string; title?: string; prompt?: string; projectId?: string; createdAt?: string; updatedAt?: string; successCount?: number; failCount?: number; error?: string };
 
@@ -78,6 +84,8 @@ export async function runSiteTool(name: SiteToolName, input: SiteToolInput, navi
             return addAsset(input);
         case "ow_context_get":
             return getOwContext();
+        case "ow_context_render":
+            return renderOwContextCards(input, context);
         default:
             throw new Error(siteText("unknownTool", { name }));
     }
@@ -325,6 +333,41 @@ async function getOwContext() {
         }
         throw new Error(siteText("owContextFailed"));
     }
+}
+
+/**
+ * 读取 OneWork 上下文并把项目/任务/文档渲染为画布卡片（文本节点 + 连线）。
+ * 复用既有 canvas applyOps 引擎（不另造卡片引擎）；空上下文或未打开画布时报错。
+ */
+async function renderOwContextCards(input: SiteToolInput, context: SiteToolContext) {
+    let snapshot: Record<string, unknown>;
+    try {
+        snapshot = await fetchOwContext();
+    } catch (error) {
+        if (error instanceof OwContextError) {
+            if (error.code === "unauthorized") throw new Error(siteText("owContextUnauthorized"));
+            if (error.code === "not-synced") throw new Error(siteText("owContextNotSynced"));
+        }
+        throw new Error(siteText("owContextFailed"));
+    }
+
+    const position = isRecordObject(input.position) ? input.position : undefined;
+    const origin = position
+        ? {
+              x: typeof position.x === "number" ? position.x : undefined,
+              y: typeof position.y === "number" ? position.y : undefined,
+          }
+        : undefined;
+    const result = buildOwContextCards(snapshot, origin);
+    if (!result.cards.length) throw new Error(siteText("owContextRenderEmpty"));
+    if (!context.applyOps) throw new Error(siteText("openCanvasFirst"));
+
+    context.applyOps(result.ops);
+    return { ok: true, count: result.cards.length, cards: result.cards };
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function paginate(input: SiteToolInput, total: number, defaultSize: number) {
