@@ -2,6 +2,7 @@ import type { NavigateFunction } from "react-router-dom";
 
 import i18n from "@/i18n";
 import { fetchPrompts } from "@/services/api/prompts";
+import { fetchOwContext, OwContextError } from "@/services/api/ow-context";
 import { uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondOptions, videoSizeOptions } from "@/components/video-settings-panel";
@@ -24,6 +25,7 @@ export const SITE_TOOL_NAMES = [
     "prompts_search",
     "assets_list",
     "assets_add",
+    "ow_context_get",
 ] as const;
 
 export type SiteToolName = (typeof SITE_TOOL_NAMES)[number];
@@ -46,6 +48,7 @@ export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
     get prompts_search() { return siteText("promptSearch"); },
     get assets_list() { return siteText("assetList"); },
     get assets_add() { return siteText("assetAdd"); },
+    get ow_context_get() { return siteText("owContext"); },
 };
 
 type SiteToolInput = Record<string, unknown>;
@@ -73,6 +76,8 @@ export async function runSiteTool(name: SiteToolName, input: SiteToolInput, navi
             return listAssets(input);
         case "assets_add":
             return addAsset(input);
+        case "ow_context_get":
+            return getOwContext();
         default:
             throw new Error(siteText("unknownTool", { name }));
     }
@@ -308,6 +313,18 @@ async function addAsset(input: SiteToolInput) {
         return { ok: true, id, kind: "image" };
     }
     throw new Error(siteText("assetKindUnsupported"));
+}
+
+async function getOwContext() {
+    try {
+        return await fetchOwContext();
+    } catch (error) {
+        if (error instanceof OwContextError) {
+            if (error.code === "unauthorized") throw new Error(siteText("owContextUnauthorized"));
+            if (error.code === "not-synced") throw new Error(siteText("owContextNotSynced"));
+        }
+        throw new Error(siteText("owContextFailed"));
+    }
 }
 
 function paginate(input: SiteToolInput, total: number, defaultSize: number) {
