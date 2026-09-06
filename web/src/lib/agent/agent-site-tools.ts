@@ -4,6 +4,7 @@ import i18n from "@/i18n";
 import { fetchPrompts } from "@/services/api/prompts";
 import { fetchOwContext, OwContextError } from "@/services/api/ow-context";
 import { buildOwContextCards } from "@/services/api/ow-context-cards";
+import { buildOwContextAnalysis } from "@/services/api/ow-context-analysis";
 import { uploadImage } from "@/services/image-storage";
 import { imageAspectOptions, imageQualityOptions } from "@/components/image-settings-panel";
 import { videoResolutionOptions, videoSecondOptions, videoSizeOptions } from "@/components/video-settings-panel";
@@ -28,6 +29,7 @@ export const SITE_TOOL_NAMES = [
     "assets_add",
     "ow_context_get",
     "ow_context_render",
+    "ow_analyze_report",
 ] as const;
 
 export type SiteToolName = (typeof SITE_TOOL_NAMES)[number];
@@ -52,6 +54,7 @@ export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
     get assets_add() { return siteText("assetAdd"); },
     get ow_context_get() { return siteText("owContext"); },
     get ow_context_render() { return siteText("owContextRender"); },
+    get ow_analyze_report() { return siteText("owAnalyzeReport"); },
 };
 
 type SiteToolInput = Record<string, unknown>;
@@ -86,6 +89,8 @@ export async function runSiteTool(name: SiteToolName, input: SiteToolInput, navi
             return getOwContext();
         case "ow_context_render":
             return renderOwContextCards(input, context);
+        case "ow_analyze_report":
+            return renderOwAnalysisReport(input, context);
         default:
             throw new Error(siteText("unknownTool", { name }));
     }
@@ -364,6 +369,36 @@ async function renderOwContextCards(input: SiteToolInput, context: SiteToolConte
 
     context.applyOps(result.ops);
     return { ok: true, count: result.cards.length, cards: result.cards };
+}
+
+/**
+ * 读取 OneWork 上下文，渲染项目/任务/文档卡片 + 一张分析报告文本节点，
+ * 并把每张卡片连线到报告节点（引用块 + 连线闭环）。空上下文或未打开画布时报错。
+ */
+async function renderOwAnalysisReport(input: SiteToolInput, context: SiteToolContext) {
+    let snapshot: Record<string, unknown>;
+    try {
+        snapshot = await fetchOwContext();
+    } catch (error) {
+        if (error instanceof OwContextError) {
+            if (error.code === "unauthorized") throw new Error(siteText("owContextUnauthorized"));
+            if (error.code === "not-synced") throw new Error(siteText("owContextNotSynced"));
+        }
+        throw new Error(siteText("owContextFailed"));
+    }
+    const position = isRecordObject(input.position) ? input.position : undefined;
+    const origin = position
+        ? {
+              x: typeof position.x === "number" ? position.x : undefined,
+              y: typeof position.y === "number" ? position.y : undefined,
+          }
+        : undefined;
+    const result = buildOwContextAnalysis(snapshot, origin);
+    if (!result.cards.length) throw new Error(siteText("owContextRenderEmpty"));
+    if (!context.applyOps) throw new Error(siteText("openCanvasFirst"));
+
+    context.applyOps(result.ops);
+    return { ok: true, cards: result.cards, reportNode: result.reportNode };
 }
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {

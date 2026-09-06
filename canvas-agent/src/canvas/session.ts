@@ -38,6 +38,7 @@ const SITE_TOOLS = new Set<ToolName>([
     "generation_get_status",
     "ow_context_get",
     "ow_context_render",
+    "ow_analyze_report",
 ]);
 
 /** 管理网页画布连接、状态、附件和工具请求。 */
