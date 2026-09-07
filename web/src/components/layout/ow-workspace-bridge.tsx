@@ -21,8 +21,11 @@ export function OwWorkspaceBridge() {
         const handleMessage = (event: MessageEvent) => {
             const data: unknown = event.data;
             if (!isOwWorkspaceSwitchedMessage(data)) return;
-            // 与 use-ow-bridge 同一来源校验：非本域/空 origin（OneWork 本地窗口）之外一律拒绝。
-            if (event.origin !== "" && event.origin !== window.location.origin) return;
+            // 来源校验（跨源修正，P0 验收实测）：OneWork 主窗口与画布在 dev（localhost:1420）
+            // 与打包（tauri.localhost）形态下均跨源于画布 localhost:3000，原 event.origin 比对
+            // 会把合法 parent 消息全部拒收。改为属主校验：sender 必须是本画布的直接父窗口
+            // （嵌入方）；独立浏览器打开时 parent===window，仅自消息，无副作用。
+            if (event.source !== window.parent) return;
             useOwWorkspaceStore.getState().applyWorkspace(data.workspace);
         };
         window.addEventListener("message", handleMessage);
@@ -30,10 +33,28 @@ export function OwWorkspaceBridge() {
     }, []);
 
     if (!workspaceName) return null;
+    // 低调角标（2026-09-07 定稿）：左下角小字，防用户混淆当前工作区；内联样式保证
+    // 不受 Tailwind 编译/画布自身 UI 层级影响（验收期横幅已实证链路，回调低调形态）。
     return (
         <div
             aria-label="OneWork workspace"
-            className="pointer-events-none fixed bottom-3 left-3 z-50 flex items-center gap-1.5 rounded-full border border-stone-200/70 bg-stone-100/85 px-3 py-1 text-xs text-stone-500 shadow-sm backdrop-blur-sm dark:border-stone-700/70 dark:bg-stone-900/85 dark:text-stone-400"
+            style={{
+                position: "fixed",
+                bottom: 12,
+                left: 12,
+                zIndex: 60,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: "rgba(120, 113, 108, 0.55)",
+                color: "#fafaf9",
+                fontSize: 11,
+                lineHeight: "16px",
+                backdropFilter: "blur(4px)",
+                pointerEvents: "none",
+            }}
         >
             <LayoutGrid className="size-3.5" />
             <span>{workspaceName}</span>

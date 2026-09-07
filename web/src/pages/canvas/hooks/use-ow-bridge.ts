@@ -65,11 +65,11 @@ export function useOwBridge(params: OwBridgeParams) {
         (event: MessageEvent) => {
             const data = event.data;
             if (typeof data !== "object" || data === null || data.type !== OW_INSERT_ASSET_MESSAGE_TYPE) return;
-            if (event.origin !== "" && event.origin !== window.location.origin) {
-                // iframe 由 OneWork 本地窗口加载（owBridge 场景 origin 为空/localhost）；
-                // 非本域来源一律拒绝（OneWork 主窗口与画布同源 dev；打包为 file/local 时 origin ""，放行）。
-                return;
-            }
+            // 来源校验（跨源修正，工作区隔离 P0 验收实测）：OneWork 主窗口与画布在 dev
+            // （localhost:1420）与打包（tauri.localhost）形态下均跨源于画布 localhost:3000，
+            // 原 event.origin 比对会把合法 parent 消息全部拒收。改为属主校验：sender 必须是
+            // 本画布的直接父窗口（嵌入方）；独立浏览器打开时 parent===window，仅自消息。
+            if (event.source !== window.parent) return;
             const h = handlersRef.current;
             void applyOwInsertAsset(data, h).then((ok) => {
                 if (ok) {
